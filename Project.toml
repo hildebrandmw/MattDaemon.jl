@@ -3,6 +3,14 @@ uuid = "bcc82005-07cc-47e9-8ddf-048db001be8e"
 authors = ["Mark Hildebrand <mhildebrand@ucdavis.edu>"]
 version = "0.1.0"
 
+[deps]
+CounterTools = "14d5c891-3eb4-4046-b085-be47e3b93327"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+SystemSnoop = "c30797a9-91c2-5451-bcc7-95710ac2a28d"
+
 [compat]
 julia = "1"
 
