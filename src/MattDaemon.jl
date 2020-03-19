@@ -49,7 +49,8 @@ macro measurements(ex)
     # Convert any function calls into `Payload`s
     values = map(values) do _ex
         if MacroTools.@capture(_ex, f_(args__))
-            return :(Preload($(esc(f)), $(esc(args))))
+            args = esc.(args)
+            return :(Preload($(esc(f)), [$(args...)]))
         else
             return esc(_ex)
         end
@@ -75,6 +76,9 @@ struct ServerPayload
     sampletime::Int64
     measurements::Any
 end
+
+send(io::IO, S::ServerPayload) = serialize(io, s)
+recieve(io::IO) = deserialize(io)
 
 #####
 ##### Glue
@@ -109,6 +113,9 @@ function runserver(port)
             # Start recording
             elseif cmd == "start"
                 sample(sock, payload)
+
+            elseif cmd == "exit"
+                return nothing
 
             # Who know what happene.
             else
