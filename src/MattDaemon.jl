@@ -198,4 +198,32 @@ function sample(sock, payload)
     return nothing
 end
 
+#####
+##### Method for running a function and automating talking with the server
+#####
+
+function run(f, payload::ServerPayload, port; sleeptime = nothing)
+    # Connect to the server and send over the payload.
+    client = Sockets.connect(port)
+    ping(client)
+    send(client, payload)
+
+    # Start the counters
+    start(client)
+
+    maybesleep(sleeptime)
+    return_val = f()
+    maybesleep(sleeptime)
+    stop(client)
+
+    # Get the measurement data
+    data = recieve(client)
+    close(client)
+
+    return (return_val, data)
+end
+
+maybesleep(::Nothing) = nothing
+maybesleep(x) = sleep(x)
+
 end # module

@@ -95,6 +95,7 @@ using Test
 
             # Close down server
             MattDaemon.shutdown(client)
+            close(client)
         end
 
         # Launch there server.
@@ -109,4 +110,60 @@ using Test
         @test millis > 90
         @test millis < 110
     end
+end
+
+@testset "Testing `run`" begin
+    measurements = MattDaemon.@measurements (
+        timestamp_a = SystemSnoop.Timestamp(),
+        timestamp_b = SystemSnoop.Timestamp(),
+    )
+
+    payload = MattDaemon.ServerPayload(
+        Millisecond(100),
+        measurements,
+    )
+
+    # The function to run.
+    v = Ref{Int}(0)
+    f = () -> begin
+        println("Running Inner Function")
+        sleep(2)
+        v[] = 1
+        return "hello"
+    end
+
+    sleeptime = 0.1
+    port = 2000
+
+    local return_val
+    local data
+    @sync begin
+        @async begin
+            sleep(1)
+
+            # To get the test working with Julia's tasking system, it seems to be
+            # important to
+            #
+            # - yield
+            # - print (gives Julia's scheduler a chance to switch tasks)
+            #
+            # Before running the inner function.
+            # Who knows why - my mental model of Julia's tasks isn't great!
+            yield()
+            println("Connecting to Server")
+
+            return_val, data = MattDaemon.run(f, payload, port; sleeptime = sleeptime)
+
+            # Shutdown the server
+            MattDaemon.shutdown(Sockets.connect(port))
+        end
+        @async begin
+            MattDaemon.runserver(port)
+        end
+    end
+
+    @test v[] == 1
+    @test return_val == "hello"
+    @test eltype(data.timestamp_a) == DateTime
+    @test eltype(data.timestamp_b) == DateTime
 end
