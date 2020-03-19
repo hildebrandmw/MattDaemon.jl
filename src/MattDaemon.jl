@@ -17,11 +17,20 @@ using MacroTools
 ##### Macro for wrapping measurements
 #####
 
-struct Preload
+# I use this FunctionWrapper type to essentially encode a lazy function call.
+#
+# This is because serializing Closures from programs communicating with MattDaemon
+# run into WorldAge issues.
+#
+# So instead, we invoke functions that are from the correct WorldAge so MattDaemon
+# can run them.
+#
+# See tests for usage.
+struct FunctionWrapper
     f::Any
     args::Any
 end
-(P::Preload)() = (P.f)(P.args...)
+Base.:(==)(a::FunctionWrapper, b::FunctionWrapper) = (a.f == b.f) && (a.args == b.args)
 
 """
     @measurements measurements::NamedTuple
@@ -50,7 +59,7 @@ macro measurements(ex)
     values = map(values) do _ex
         if MacroTools.@capture(_ex, f_(args__))
             args = esc.(args)
-            return :(Preload($(esc(f)), [$(args...)]))
+            return :(FunctionWrapper($(esc(f)), [$(args...)]))
         else
             return esc(_ex)
         end
@@ -65,7 +74,7 @@ end
 function materialize(x::NamedTuple{names}) where {names}
     return NamedTuple{names}((materialize.(Tuple(x))...,))
 end
-materialize(x::Preload) = (x.f)(x.args...)
+materialize(x::FunctionWrapper) = (x.f)(x.args...)
 materialize(x) = x
 
 #####
@@ -73,12 +82,26 @@ materialize(x) = x
 #####
 
 struct ServerPayload
-    sampletime::Int64
+    sampletime::TimePeriod
     measurements::Any
 end
 
-send(io::IO, S::ServerPayload) = serialize(io, s)
+# Server API
+function ping(io::IO)
+    println(io, "ping")
+    return readline(io) == "ping"
+end
+
+function send(io::IO, S::ServerPayload)
+    println(io, "payload")
+    serialize(io, S)
+    return nothing
+end
 recieve(io::IO) = deserialize(io)
+
+start(io::IO) = println(io, "start")
+stop(io::IO) = println(io, "stop")
+shutdown(io::IO) = println(io, "exit")
 
 #####
 ##### Glue
@@ -95,19 +118,27 @@ SystemSnoop.measure(monitor::CounterTools.IMCMonitor) = read(monitor)
 function runserver(port)
     # Setup a sever listening to the Named Pipe
     # Set the permissions on the server so it is readable and writable by non-sudo processes.
+    println("Running Server")
     server = listen(port)
 
     # Run forever!
     while true
+        println("Waiting for connection")
         sock = accept(server)
+        println("Accepted connection")
         payload = nothing
 
         # Wait for a "go" method
         while isopen(sock)
             cmd = readline(sock)
+            println("Command: ", cmd)
+
+            # Ping back to see if anyone's listening
+            if cmd == "ping"
+                println(sock, "ping")
 
             # Payload transmission
-            if cmd == "payload"
+            elseif cmd == "payload"
                 payload = deserialize(sock)
 
             # Start recording
@@ -128,7 +159,7 @@ end
 sample(sock, ::Nothing) = nothing
 function sample(sock, payload)
     # Set up a smart sampler for regular updates
-    sampler = SystemSnoop.SmartSample(Second(payload.sampletime))
+    sampler = SystemSnoop.SmartSample(payload.sampletime)
 
     local trace
     @sync begin
