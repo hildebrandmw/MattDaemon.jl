@@ -143,7 +143,12 @@ function runserver(port)
 
             # Start recording
             elseif cmd == "start"
+                # Start sampling.
+                #
+                # Run Garbage collection afterwards to make sure we clean up any
+                # left-over monitors.
                 sample(sock, payload)
+                GC.gc()
 
             elseif cmd == "exit"
                 close(server)
