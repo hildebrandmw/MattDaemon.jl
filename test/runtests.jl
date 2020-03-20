@@ -135,33 +135,27 @@ end
     sleeptime = 0.1
     port = 2000
 
-    local return_val
     local data
+    local return_val
+    local runtime
     @sync begin
-        @async begin
-            sleep(1)
-
-            # To get the test working with Julia's tasking system, it seems to be
-            # important to
-            #
-            # - yield
-            # - print (gives Julia's scheduler a chance to switch tasks)
-            #
-            # Before running the inner function.
-            # Who knows why - my mental model of Julia's tasks isn't great!
-            yield()
-            println("Connecting to Server")
-
-            return_val, data = MattDaemon.run(f, payload, port; sleeptime = sleeptime)
-
-            # Shutdown the server
-            MattDaemon.shutdown(Sockets.connect(port))
-        end
         @async begin
             MattDaemon.runserver(port)
         end
+        @async begin
+            sleep(1)
+            data, return_val, runtime = MattDaemon.run(
+                f,
+                payload,
+                port;
+                sleeptime = sleeptime
+            )
+            # Shutdown the server
+            MattDaemon.shutdown(Sockets.connect(port))
+        end
     end
 
+    @test runtime > 2
     @test v[] == 1
     @test return_val == "hello"
     @test eltype(data.timestamp_a) == DateTime

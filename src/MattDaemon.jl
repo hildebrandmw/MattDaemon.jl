@@ -87,7 +87,7 @@ struct ServerPayload
 end
 
 # Server API
-function ping(io::IO)
+function ping(io::IO; timeout = Second(10))
     println(io, "ping")
     return readline(io) == "ping"
 end
@@ -120,8 +120,8 @@ function runserver(port)
     # Set the permissions on the server so it is readable and writable by non-sudo processes.
     println("Running Server")
     server = listen(port)
+    println("SERVER UP")
 
-    # Run forever!
     while true
         println("Waiting for connection")
         sock = accept(server)
@@ -146,6 +146,7 @@ function runserver(port)
                 sample(sock, payload)
 
             elseif cmd == "exit"
+                close(server)
                 return nothing
 
             # Who know what happene.
@@ -212,7 +213,7 @@ function run(f, payload::ServerPayload, port; sleeptime = nothing)
     start(client)
 
     maybesleep(sleeptime)
-    return_val = f()
+    runtime = @elapsed return_val = f()
     maybesleep(sleeptime)
     stop(client)
 
@@ -220,7 +221,7 @@ function run(f, payload::ServerPayload, port; sleeptime = nothing)
     data = recieve(client)
     close(client)
 
-    return (return_val, data)
+    return (data, return_val, runtime)
 end
 
 maybesleep(::Nothing) = nothing
