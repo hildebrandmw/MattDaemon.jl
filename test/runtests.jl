@@ -8,17 +8,30 @@ using Test
 
 @testset "MattDaemon.jl" begin
     # Test of FunctionWrapper
-    fw = MattDaemon.FunctionWrapper(+, [1,2,3])
+    fw = MattDaemon.FunctionWrapper(+, [1,2,3], NamedTuple())
     @test MattDaemon.materialize(fw) == 1 + 2 + 3
 
     # Test equality
-    fb = MattDaemon.FunctionWrapper(+, [1,2,3])
+    fb = MattDaemon.FunctionWrapper(+, [1,2,3], NamedTuple())
     @test fw == fb
-    fc = MattDaemon.FunctionWrapper(+, [1,1,1])
+    fc = MattDaemon.FunctionWrapper(+, [1,1,1], NamedTuple())
     @test fw != fc
 
     # Materialize should just pass through non-FunctionWrappers
     @test MattDaemon.materialize(10) == 10
+
+    # Test NamedTuple construction
+    f1(a, b) = a + b
+    f2(a; x = 10, y = 20) = a + x + y
+
+    nt = MattDaemon.@measurements (
+        f1 = f1(10, 10),
+        f2 = f2(10; x = 10, y = 10),
+    )
+
+    nt2 = MattDaemon.materialize(nt)
+    @test nt2.f1 == 20
+    @test nt2.f2 == 30
 
     # Make sure the macro is working
     #
@@ -38,11 +51,12 @@ using Test
 
     # Now, check that this was transcoded properly.
     @test measurements.dummy == 500
-    @test measurements.timestamp == MattDaemon.FunctionWrapper(SystemSnoop.Timestamp, [])
+    @test measurements.timestamp == MattDaemon.FunctionWrapper(SystemSnoop.Timestamp, [], NamedTuple())
 
     expected = MattDaemon.FunctionWrapper(
         CounterTools.CoreMonitor,
         [CounterTools.IndexZero(0), events],
+        NamedTuple()
     )
     @test measurements.counters == expected
 

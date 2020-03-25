@@ -29,8 +29,9 @@ using MacroTools
 struct FunctionWrapper
     f::Any
     args::Any
+    kw::NamedTuple
 end
-Base.:(==)(a::FunctionWrapper, b::FunctionWrapper) = (a.f == b.f) && (a.args == b.args)
+Base.:(==)(a::FunctionWrapper, b::FunctionWrapper) = (a.f == b.f) && (a.args == b.args) && (a.kw == b.kw)
 
 """
     @measurements measurements::NamedTuple
@@ -57,9 +58,13 @@ macro measurements(ex)
 
     # Convert any function calls into `Payload`s
     values = map(values) do _ex
-        if MacroTools.@capture(_ex, f_(args__))
+        if MacroTools.@capture(_ex, f_(args__; kw__))
             args = esc.(args)
-            return :(FunctionWrapper($(esc(f)), [$(args...)]))
+            kw = esc.(kw)
+            return :(FunctionWrapper($(esc(f)), [$(args...)], (;$(kw...))))
+        elseif MacroTools.@capture(_ex, f_(args__))
+            args = esc.(args)
+            return :(FunctionWrapper($(esc(f)), [$(args...)], NamedTuple()))
         else
             return esc(_ex)
         end
@@ -74,7 +79,7 @@ end
 function materialize(x::NamedTuple{names}) where {names}
     return NamedTuple{names}((materialize.(Tuple(x))...,))
 end
-materialize(x::FunctionWrapper) = (x.f)(x.args...)
+materialize(x::FunctionWrapper) = (x.f)(x.args...; x.kw...)
 materialize(x) = x
 
 #####
