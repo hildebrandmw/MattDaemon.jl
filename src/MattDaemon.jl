@@ -115,6 +115,7 @@ shutdown(io::IO) = println(io, "exit")
 # Make CounterTools compatible with SystemSnoop
 SystemSnoop.measure(monitor::CounterTools.CoreMonitor) = read(monitor)
 SystemSnoop.measure(monitor::CounterTools.IMCMonitor) = read(monitor)
+SystemSnoop.measure(monitor::CounterTools.CHAMonitor) = read(monitor)
 
 #####
 ##### Set up some
