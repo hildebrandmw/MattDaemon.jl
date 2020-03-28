@@ -24,6 +24,20 @@ using Test
     f1(a, b) = a + b
     f2(a; x = 10, y = 20) = a + x + y
 
+    # Test @measurement
+    object = 100
+    x = MattDaemon.@measurement object
+    @test x == object
+
+    x = MattDaemon.@measurement f1(10, 10)
+    @test isa(x, MattDaemon.FunctionWrapper)
+    @test MattDaemon.materialize(x) == f1(10, 10)
+
+    # Test keywords
+    x = MattDaemon.@measurement f2(10; x = 100, y = 10)
+    @test isa(x, MattDaemon.FunctionWrapper)
+    @test MattDaemon.materialize(x) == f2(10, x = 100, y = 10)
+
     nt = MattDaemon.@measurements (
         f1 = f1(10, 10),
         f2 = f2(10; x = 10, y = 10),

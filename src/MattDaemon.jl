@@ -33,6 +33,21 @@ struct FunctionWrapper
 end
 Base.:(==)(a::FunctionWrapper, b::FunctionWrapper) = (a.f == b.f) && (a.args == b.args) && (a.kw == b.kw)
 
+function wrapfunction(ex)
+    # Keyword only functions
+    if MacroTools.@capture(ex, f_(; kw__) | f_(args__; kw__) | f_(args__))
+        f = esc(f)
+        args = isnothing(args) ? () : esc.(args)
+        kw = isnothing(kw) ? NamedTuple() : esc.(kw)
+        return :(FunctionWrapper($f, [$(args...)], (;$(kw...))))
+    end
+    return esc(ex)
+end
+
+macro measurement(ex)
+    return wrapfunction(ex)
+end
+
 """
     @measurements measurements::NamedTuple
 
@@ -54,21 +69,8 @@ macro measurements(ex)
     names = map(x -> QuoteNode(first(x.args)), ex.args)
 
     # Slurp up the named tuple values
-    values = map(x -> x.args[2], ex.args)
-
-    # Convert any function calls into `Payload`s
-    values = map(values) do _ex
-        if MacroTools.@capture(_ex, f_(args__; kw__))
-            args = esc.(args)
-            kw = esc.(kw)
-            return :(FunctionWrapper($(esc(f)), [$(args...)], (;$(kw...))))
-        elseif MacroTools.@capture(_ex, f_(args__))
-            args = esc.(args)
-            return :(FunctionWrapper($(esc(f)), [$(args...)], NamedTuple()))
-        else
-            return esc(_ex)
-        end
-    end
+    # Wrap any function calls into "Payloads"s
+    values = map(x -> wrapfunction(x.args[2]), ex.args)
 
     # Build up the named tuple expression
     return quote
