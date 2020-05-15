@@ -186,38 +186,6 @@ function sample(sock, payload)
         end
     end
 
-    # local trace
-    # @sync begin
-    #     # Spawn a task to sample the buffer and notify when a `stop` command is reached.
-    #     canexit = false
-    #     @async begin
-    #         while true
-    #             ln = readline(sock)
-    #             if ln == "stop"
-    #                 canexit = true
-    #                 break
-    #             else
-    #                 println("Unhandled command: $ln")
-    #             end
-    #         end
-    #     end
-
-    #     # Measuring loop
-    #     trace = SystemSnoop.snoop(materialize(payload.measurements)) do snooper
-    #         while true
-    #             # Sleep until it's time to sample
-    #             sleep(sampler)
-    #             SystemSnoop.measure!(snooper)
-
-    #             # Check to see if we can exit.
-    #             if canexit
-    #                 println("Stopping Sampling")
-    #                 return nothing
-    #             end
-    #         end
-    #     end
-    # end
-
     # Now that we've finished taking measurements, send the trace back along the pipe.
     serialize(sock, trace)
     return nothing
