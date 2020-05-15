@@ -162,7 +162,7 @@ function runserver(port)
                 close(server)
                 return nothing
 
-            # Who know what happene.
+            # Who knows what happened.
             else
                 println("Unknown Command: $cmd")
             end
@@ -172,40 +172,51 @@ end
 
 sample(sock, ::Nothing) = nothing
 function sample(sock, payload)
-    # Set up a smart sampler for regular updates
-    sampler = SystemSnoop.SmartSample(payload.sampletime)
+    nt = materialize(payload.measurements)
+    sampletime = payload.sampletime
 
-    local trace
-    @sync begin
-        # Spawn a task to sample the buffer and notify when a `stop` command is reached.
-        canexit = false
-        @async begin
-            while true
-                ln = readline(sock)
-                if ln == "stop"
-                    canexit = true
-                    break
-                else
-                    println("Unhandled command: $ln")
-                end
-            end
-        end
-
-        # Measuring loop
-        trace = SystemSnoop.snoop(materialize(payload.measurements)) do snooper
-            while true
-                # Sleep until it's time to sample
-                sleep(sampler)
-                SystemSnoop.measure!(snooper)
-
-                # Check to see if we can exit.
-                if canexit
-                    println("Stopping Sampling")
-                    return nothing
-                end
+    trace = @snooped nt sampletime begin
+        while true
+            ln = readline(sock)
+            if ln == "stop"
+                break
+            else
+                println("Unhandled command: $ln")
             end
         end
     end
+
+    # local trace
+    # @sync begin
+    #     # Spawn a task to sample the buffer and notify when a `stop` command is reached.
+    #     canexit = false
+    #     @async begin
+    #         while true
+    #             ln = readline(sock)
+    #             if ln == "stop"
+    #                 canexit = true
+    #                 break
+    #             else
+    #                 println("Unhandled command: $ln")
+    #             end
+    #         end
+    #     end
+
+    #     # Measuring loop
+    #     trace = SystemSnoop.snoop(materialize(payload.measurements)) do snooper
+    #         while true
+    #             # Sleep until it's time to sample
+    #             sleep(sampler)
+    #             SystemSnoop.measure!(snooper)
+
+    #             # Check to see if we can exit.
+    #             if canexit
+    #                 println("Stopping Sampling")
+    #                 return nothing
+    #             end
+    #         end
+    #     end
+    # end
 
     # Now that we've finished taking measurements, send the trace back along the pipe.
     serialize(sock, trace)
