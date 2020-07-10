@@ -31,6 +31,7 @@ struct FunctionWrapper
     args::Any
     kw::NamedTuple
 end
+FunctionWrapper(f, args, ::Nothing) = FunctionWrapper(f, args, NamedTuple())
 Base.:(==)(a::FunctionWrapper, b::FunctionWrapper) = (a.f == b.f) && (a.args == b.args) && (a.kw == b.kw)
 
 function wrapfunction(ex)
@@ -120,7 +121,7 @@ SystemSnoop.measure(monitor::CounterTools.IMCMonitor) = read(monitor)
 SystemSnoop.measure(monitor::CounterTools.CHAMonitor) = read(monitor)
 
 #####
-##### Set up some
+#####
 #####
 
 function runserver(port)
